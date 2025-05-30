@@ -7,6 +7,7 @@ export default async function Home() {
   if (sensorReadings.length === 0) return <h1>No Data Found</h1>;
   const redisClient = Redis.fromEnv();
   const dataEndpoint = (await redisClient.get('data_endpoint')) as string;
+  console.log(dataEndpoint);
   return (
     <main>
       <IoTDashboard

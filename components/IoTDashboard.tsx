@@ -53,7 +53,11 @@ export default function IoTDashboard({
   defaultEndpoint: string;
 }) {
   const [customEndpoint, setCustomEndpoint] = useState<string>(defaultEndpoint);
+  const [endpointInput, setEndpointInput] = useState('');
   const [showEndpointInput, setShowEndpointInput] = useState(false);
+  const [showThresholdInput, setShowThresholdInput] = useState(false);
+
+  const [tempThreshold, setTempThreshold] = useState(30);
 
   const baseData = {
     temperature: {
@@ -87,7 +91,19 @@ export default function IoTDashboard({
   const [status, setStatus] = useState('Connected');
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  // Simulate real-time updates
+  const sendTempThreshold = () => {
+    fetch(customEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+      body: tempThreshold.toString(), // just send float as plain text
+    })
+      .then((res) => res.json())
+
+      .catch((err) => console.error('❌ Error sending:', err));
+  };
+
   useEffect(() => {
     const getSetReadings = async () => {
       let sensorData: TSensor_readings[] | undefined;
@@ -96,7 +112,6 @@ export default function IoTDashboard({
         if (customEndpoint) {
           // Fetch from custom endpoint
           const response = await fetch(customEndpoint);
-          console.log(response);
           if (!response.ok) {
             throw new Error('Failed to fetch from custom endpoint');
           }
@@ -245,13 +260,20 @@ export default function IoTDashboard({
             >
               Configure Endpoint
             </Button>
+            <Button
+              onClick={() => setShowThresholdInput(!showThresholdInput)}
+              variant='outline'
+              size='sm'
+            >
+              Configure Threshold
+            </Button>
             <Button onClick={refreshData} variant='outline' size='sm'>
               <RefreshCw className='mr-2 w-4 h-4' />
               Refresh
             </Button>
           </div>
           {showEndpointInput && (
-            <div className='top-24 right-4 z-10 absolute bg-white dark:bg-gray-800 shadow-lg p-4 border border-gray-200 dark:border-gray-700 rounded-lg'>
+            <div className='top-1/2 right-4 left-1/2 z-10 absolute bg-white dark:bg-gray-800 shadow-lg p-4 border border-gray-200 dark:border-gray-700 rounded-lg -translate-1/2'>
               <div className='space-y-4'>
                 <div>
                   <label className='block mb-1 font-medium text-gray-700 dark:text-gray-300 text-sm'>
@@ -259,8 +281,8 @@ export default function IoTDashboard({
                   </label>
                   <input
                     type='text'
-                    value={customEndpoint}
-                    onChange={(e) => setCustomEndpoint(e.target.value)}
+                    value={endpointInput}
+                    onChange={(e) => setEndpointInput(e.target.value)}
                     placeholder='https://your-api.com/sensor-data'
                     className='dark:bg-gray-700 shadow-sm px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full dark:text-white'
                   />
@@ -268,16 +290,53 @@ export default function IoTDashboard({
                 <div className='flex justify-end gap-2'>
                   <Button
                     onClick={() => {
-                      setCustomEndpoint('');
+                      setCustomEndpoint(endpointInput);
                       setShowEndpointInput(false);
                     }}
                     variant='outline'
                     size='sm'
                   >
-                    Reset to Default
+                    Set Endpoint
                   </Button>
                   <Button
                     onClick={() => setShowEndpointInput(false)}
+                    variant='outline'
+                    size='sm'
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+          {showThresholdInput && (
+            <div className='top-1/2 right-4 left-1/2 z-10 absolute bg-white dark:bg-gray-800 shadow-lg p-4 border border-gray-200 dark:border-gray-700 rounded-lg -translate-1/2'>
+              <div className='space-y-4'>
+                <div>
+                  <label className='block mb-1 font-medium text-gray-700 dark:text-gray-300 text-sm'>
+                    Set Temparature Threshold
+                  </label>
+                  <input
+                    type='text'
+                    value={tempThreshold}
+                    onChange={(e) => setTempThreshold(Number(e.target.value))}
+                    placeholder='Threshold to beep'
+                    className='dark:bg-gray-700 shadow-sm px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full dark:text-white'
+                  />
+                </div>
+                <div className='flex justify-end gap-2'>
+                  <Button
+                    onClick={() => {
+                      sendTempThreshold();
+                      setShowThresholdInput(false);
+                    }}
+                    variant='outline'
+                    size='sm'
+                  >
+                    Set Endpoint
+                  </Button>
+                  <Button
+                    onClick={() => setShowThresholdInput(false)}
                     variant='outline'
                     size='sm'
                   >
@@ -404,7 +463,7 @@ export default function IoTDashboard({
             <CardContent>
               <div className='space-y-3'>
                 <div className='font-bold text-3xl'>
-                  {sensorData.airQuality.value} {sensorData.airQuality.unit}
+                  {sensorData.airQuality.value} Conc
                 </div>
                 <div className='flex justify-between items-center'>
                   <Badge
