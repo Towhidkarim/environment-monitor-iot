@@ -50,6 +50,9 @@ export default function IoTDashboard({
 }: {
   readings: TSensor_readings;
 }) {
+  const [customEndpoint, setCustomEndpoint] = useState<string>('');
+  const [showEndpointInput, setShowEndpointInput] = useState(false);
+
   const baseData = {
     temperature: {
       value: readings.temperature ?? 26,
@@ -78,42 +81,66 @@ export default function IoTDashboard({
     },
   };
   const [sensorData, setSensorData] = useState(baseData);
-  const [isConnected, setIsConnected] = useState(true);
+  const [isBTConnected, setIsBTConnected] = useState(true);
+  const [status, setStatus] = useState('Connected');
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   // Simulate real-time updates
   useEffect(() => {
     const getSetReadings = async () => {
-      const sensorData = await GetSensorDataAction(1);
-      if (!sensorData || sensorData.length == 0) return;
-      setSensorData((prev) => ({
-        temperature: {
-          ...prev.temperature,
-          value: sensorData[0].temperature ?? 25,
-          lastUpdated: new Date(),
-        },
-        humidity: {
-          ...prev.humidity,
-          value: sensorData[0].humidity ?? 65,
-          lastUpdated: new Date(),
-        },
-        heatIndex: {
-          ...prev.heatIndex,
-          value: sensorData[0].heatIndex ?? 26.8,
-          lastUpdated: new Date(),
-        },
-        airQuality: {
-          ...prev.airQuality,
-          value: sensorData[0].mq_reading ?? 42,
-          lastUpdated: new Date(),
-        },
-      }));
-      setLastRefresh(new Date());
+      let sensorData: TSensor_readings[] | undefined;
+
+      try {
+        if (customEndpoint) {
+          // Fetch from custom endpoint
+          const response = await fetch(customEndpoint);
+          console.log(response);
+          if (!response.ok) {
+            throw new Error('Failed to fetch from custom endpoint');
+          }
+          const data: TSensor_readings = await response.json();
+          sensorData = [data]; // Wrap in array to match database format
+        } else {
+          // Fetch from database
+          sensorData = await GetSensorDataAction(1);
+        }
+
+        if (!sensorData || sensorData.length === 0) return;
+
+        setSensorData((prev) => ({
+          temperature: {
+            ...prev.temperature,
+            value: sensorData?.[0].temperature ?? 25,
+            lastUpdated: new Date(),
+          },
+          humidity: {
+            ...prev.humidity,
+            value: sensorData?.[0].humidity ?? 65,
+            lastUpdated: new Date(),
+          },
+          heatIndex: {
+            ...prev.heatIndex,
+            value: sensorData?.[0].heatIndex ?? 26.8,
+            lastUpdated: new Date(),
+          },
+          airQuality: {
+            ...prev.airQuality,
+            value: sensorData?.[0].mq_reading ?? 42,
+            lastUpdated: new Date(),
+          },
+        }));
+        setLastRefresh(new Date());
+      } catch (error) {
+        console.error('Error fetching sensor data:', error);
+        // Optionally handle the error in the UI
+      }
     };
-    const interval = setInterval(getSetReadings, 10000); // Update every 10 seconds
+
+    getSetReadings(); // Initial fetch
+    const interval = setInterval(getSetReadings, 2000); // Update every 40 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [customEndpoint]); // Add customEndpoint as dependency
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -200,20 +227,64 @@ export default function IoTDashboard({
           </div>
           <div className='flex items-center gap-4'>
             <div className='flex items-center gap-2'>
-              {isConnected ? (
+              {isBTConnected ? (
                 <Wifi className='w-5 h-5 text-green-500' />
               ) : (
                 <WifiOff className='w-5 h-5 text-red-500' />
               )}
               <span className='text-gray-600 dark:text-gray-300 text-sm'>
-                {isConnected ? 'Connected' : 'Disconnected'}
+                {isBTConnected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
+            <Button
+              onClick={() => setShowEndpointInput(!showEndpointInput)}
+              variant='outline'
+              size='sm'
+            >
+              Configure Endpoint
+            </Button>
             <Button onClick={refreshData} variant='outline' size='sm'>
               <RefreshCw className='mr-2 w-4 h-4' />
               Refresh
             </Button>
           </div>
+          {showEndpointInput && (
+            <div className='top-24 right-4 z-10 absolute bg-white dark:bg-gray-800 shadow-lg p-4 border border-gray-200 dark:border-gray-700 rounded-lg'>
+              <div className='space-y-4'>
+                <div>
+                  <label className='block mb-1 font-medium text-gray-700 dark:text-gray-300 text-sm'>
+                    Custom Endpoint URL
+                  </label>
+                  <input
+                    type='text'
+                    value={customEndpoint}
+                    onChange={(e) => setCustomEndpoint(e.target.value)}
+                    placeholder='https://your-api.com/sensor-data'
+                    className='dark:bg-gray-700 shadow-sm px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full dark:text-white'
+                  />
+                </div>
+                <div className='flex justify-end gap-2'>
+                  <Button
+                    onClick={() => {
+                      setCustomEndpoint('');
+                      setShowEndpointInput(false);
+                    }}
+                    variant='outline'
+                    size='sm'
+                  >
+                    Reset to Default
+                  </Button>
+                  <Button
+                    onClick={() => setShowEndpointInput(false)}
+                    variant='outline'
+                    size='sm'
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Status Bar */}
@@ -244,7 +315,7 @@ export default function IoTDashboard({
             <CardContent>
               <div className='space-y-3'>
                 <div className='font-bold text-3xl'>
-                  {sensorData.temperature.value.toFixed(1)}
+                  {sensorData.temperature.value.toFixed(2)}
                   {sensorData.temperature.unit}
                 </div>
                 <div className='flex justify-between items-center'>
@@ -273,7 +344,7 @@ export default function IoTDashboard({
             <CardContent>
               <div className='space-y-3'>
                 <div className='font-bold text-3xl'>
-                  {sensorData.humidity.value.toFixed(0)}
+                  {sensorData.humidity.value.toFixed(1)}
                   {sensorData.humidity.unit}
                 </div>
                 <div className='flex justify-between items-center'>
@@ -302,7 +373,7 @@ export default function IoTDashboard({
             <CardContent>
               <div className='space-y-3'>
                 <div className='font-bold text-3xl'>
-                  {sensorData.heatIndex.value.toFixed(1)}
+                  {sensorData.heatIndex.value.toFixed(2)}
                   {sensorData.heatIndex.unit}
                 </div>
                 <div className='flex justify-between items-center'>
