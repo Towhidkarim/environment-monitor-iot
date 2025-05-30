@@ -47,10 +47,12 @@ const mockSensorData = {
 
 export default function IoTDashboard({
   readings,
+  defaultEndpoint,
 }: {
   readings: TSensor_readings;
+  defaultEndpoint: string;
 }) {
-  const [customEndpoint, setCustomEndpoint] = useState<string>('');
+  const [customEndpoint, setCustomEndpoint] = useState<string>(defaultEndpoint);
   const [showEndpointInput, setShowEndpointInput] = useState(false);
 
   const baseData = {

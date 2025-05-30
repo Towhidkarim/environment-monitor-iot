@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     const data = await request.json();
     const endpoint = data['data_endpoint'];
     console.log(endpoint);
-    redisClient.set('data-endpoint', endpoint);
+    await redisClient.set('data-endpoint', endpoint);
 
     return Response.json({ message: 'Data received' }, { status: 200 });
   } catch (error) {
